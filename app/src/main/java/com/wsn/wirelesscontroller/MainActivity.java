@@ -1,7 +1,9 @@
 package com.wsn.wirelesscontroller;
 
+import android.content.Intent;
 import android.content.pm.ActivityInfo;
-import android.media.Image;
+import android.os.Handler;
+import android.os.Message;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -12,7 +14,18 @@ import android.view.WindowManager;
 import android.widget.ImageView;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
-import android.widget.Toast;
+import android.bluetooth.*;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.lang.*;
+import java.util.UUID;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.IntentFilter;
+import java.nio.charset.Charset;
+
 
 public class MainActivity extends AppCompatActivity {
 
@@ -28,11 +41,54 @@ public class MainActivity extends AppCompatActivity {
 
     private float pos_x, pos_y = 0;
     private boolean right, left, up, down = false;
-    private boolean A,B,X,Y = false;
+    private boolean A,B,X,Y,blue = false;
 
-    private ImageView ivA,ivB,ivX,ivY;
+    private String blueText = "null";
+
+    private ImageView ivA,ivB,ivX,ivY,ivBlue;
 
     private float js_origin_X, js_origin_Y = 0;
+
+
+    //Bluetooth variables
+    BluetoothAdapter mBluetoothAdapter;
+    private static final int REQUEST_ENABLE_BT = 10;
+    Context context;
+    MyBluetoothService mBluetoothConnection;
+    private static final UUID MY_UUID_INSECURE = UUID.fromString("8ce255c0-200a-11e0-ac64-0800200c9a66");
+    BluetoothDevice mBTDevice;
+
+
+    /**
+     * Broadcast Receiver that detects bond state changes (Pairing status changes)
+     */
+    private final BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            final String action = intent.getAction();
+
+            if(action.equals(BluetoothDevice.ACTION_BOND_STATE_CHANGED)){
+                BluetoothDevice mDevice = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                //3 cases:
+                //case1: bonded already
+                if (mDevice.getBondState() == BluetoothDevice.BOND_BONDED){
+                    Log.d(TAG, "BroadcastReceiver: BOND_BONDED.");
+                    //inside BroadcastReceiver4
+                    mBTDevice = mDevice;
+                    startConnection();
+                }
+                //case2: creating a bone
+                if (mDevice.getBondState() == BluetoothDevice.BOND_BONDING) {
+                    Log.d(TAG, "BroadcastReceiver: BOND_BONDING.");
+                }
+                //case3: breaking a bond
+                if (mDevice.getBondState() == BluetoothDevice.BOND_NONE) {
+                    Log.d(TAG, "BroadcastReceiver: BOND_NONE.");
+                }
+            }
+        }
+    };
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -53,9 +109,18 @@ public class MainActivity extends AppCompatActivity {
         ivB = (ImageView)findViewById(R.id.btn_B);
         ivX = (ImageView)findViewById(R.id.btn_X);
         ivY = (ImageView)findViewById(R.id.btn_Y);
+        ivBlue = (ImageView)findViewById(R.id.bluetooth);
 
         setHandlers();
         debug();
+
+
+        //bluetooth stuff
+        //Broadcasts when bond state changes (ie:pairing)
+        IntentFilter filter = new IntentFilter(BluetoothDevice.ACTION_BOND_STATE_CHANGED);
+        registerReceiver(mBroadcastReceiver, filter);
+
+        mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
 
     }
 
@@ -161,6 +226,9 @@ public class MainActivity extends AppCompatActivity {
                         break;
                     case MotionEvent.ACTION_DOWN:
                         X = true;
+                        byte[] bytes = "x".toString().getBytes(Charset.defaultCharset());
+                        mBluetoothConnection  = new MyBluetoothService(context);
+                        mBluetoothConnection.write(bytes);
                         break;
                     default:
                         return false;
@@ -199,6 +267,41 @@ public class MainActivity extends AppCompatActivity {
                         break;
                     case MotionEvent.ACTION_DOWN:
                         B = true;
+                        break;
+                    default:
+                        return false;
+                }
+                debug();
+                return true;
+            }
+        });
+
+        ivBlue.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View view, MotionEvent motionEvent) {
+
+                if (mBluetoothAdapter == null) {
+                    blueText = "no bluetooth";
+                }
+
+                switch(motionEvent.getAction()){
+                    case MotionEvent.ACTION_UP:
+                        blue = false;
+                        blueText = "no press";
+                        break;
+                    case MotionEvent.ACTION_DOWN:
+                        blue = true;
+                        if (!mBluetoothAdapter.isEnabled()) {
+                            Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+                            startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
+                            blueText = "press";
+                            Intent discoverableIntent =
+                                    new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
+                            discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 300);
+                            startActivity(discoverableIntent);
+
+
+                        }
                         break;
                     default:
                         return false;
@@ -254,12 +357,35 @@ public class MainActivity extends AppCompatActivity {
         tvJoyStickDebug.setText("  X: "+(int)pos_x+
                                 "  Y: "+(int)pos_y+
                                 "\n  R: "+right+"  L: "+left+"  U: "+up+"  D: "+down+
-                                "\n  A: "+A+" B:"+B+" X:"+X+" Y:"+Y);
+                                "\n  A: "+A+" B:"+B+" X:"+X+" Y:"+Y+
+                                "\n bluetooth:"+blue+" text:"+blueText);
 
     }
+
+
+    //needed for bluetooth connection
+    public void startConnection(){
+        Log.d(TAG, "The things.");
+        startBTConnection(mBTDevice,MY_UUID_INSECURE);
+    }
+
+    /**
+     * starting chat service method
+     */
+    public void startBTConnection(BluetoothDevice device, UUID uuid){
+        Log.d(TAG, "startBTConnection: Initializing RFCOM Bluetooth Connection.");
+        mBluetoothConnection  = new MyBluetoothService(context);
+        mBluetoothConnection.startClient(device,uuid);
+    }
+
+
 
     @Override
     protected void onDestroy(){
         super.onDestroy();
+        unregisterReceiver(mBroadcastReceiver);
     }
+
+
+
 }
