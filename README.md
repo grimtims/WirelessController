@@ -1,4 +1,4 @@
-# # WirelessController
+# WirelessController
 This android app is a touch screen controller for use with retropie that communicates over bluetooth.
 
 ![Alt text](https://github.com/grimtims/WirelessController/blob/master/screenshot.png "Optional Title")
