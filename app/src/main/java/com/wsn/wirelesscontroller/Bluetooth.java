@@ -319,6 +319,8 @@ public class Bluetooth implements bluetoothInterface {
 
     public void closeConnection(){
         if(mConnectedThread != null){
+            //send 'q' to quit the python bluetooth server socket
+            mConnectedThread.write("q".getBytes());
             mConnectedThread.cancel();
         }
     }
@@ -328,6 +330,7 @@ public class Bluetooth implements bluetoothInterface {
      */
     public void release(){
         mBluetoothAdapter.cancelDiscovery();
+        closeConnection();
         activity.unregisterReceiver(mReceiver);
     }
 

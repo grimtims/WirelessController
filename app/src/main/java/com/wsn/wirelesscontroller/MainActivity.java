@@ -9,6 +9,7 @@ import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Message;
+import android.os.Vibrator;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
@@ -62,7 +63,10 @@ public class MainActivity extends AppCompatActivity {
     private ImageView ivA,ivB,ivX,ivY,ivBlue;
     private Button btnBlue;
     private Button btnConnect;
+    private Button btnStart, btnSelect;
     private RadioButton     ledConnected;
+
+    private Vibrator mVib; //heh
 
     private boolean isConnected = false;
 
@@ -127,12 +131,13 @@ public class MainActivity extends AppCompatActivity {
      *  - pressing the A and X button, along
      *    with moving the joystick down results in
      *
-     *      [ 0000 0000 1001 0100 ]
+     *      [ 0000 0000 1001 0100 ] Dec: 148  Hex: 94
      *
-     *  - this 16 bit number will then be sent over to the retropie
+     *  - this 16 bit number will then be sent over to the retropie as a hex value
+     *  - there is space to add other things aswell, such as player number, gyro data etc.
      *
      */
-    private short input_array = 0;
+    private short encoded_input = 0;
 
     //Bit positions in the input_array
 
@@ -170,7 +175,11 @@ public class MainActivity extends AppCompatActivity {
         ivY = (ImageView)findViewById(R.id.btn_Y);
         btnBlue = (Button)findViewById(R.id.bluetooth);
         btnConnect = (Button)findViewById(R.id.bt_discover);
+        btnStart = (Button)findViewById(R.id.btn_start);
+        btnSelect = (Button)findViewById(R.id.btn_select);
         ledConnected = (RadioButton)findViewById(R.id.led_connected);
+
+        mVib = (Vibrator) this.getSystemService(VIBRATOR_SERVICE);
 
         setHandlers();
         debug();
@@ -237,6 +246,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void setHandlers(){
 
+        // Handle joystick move it
         ivJoytickBase.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View view, MotionEvent motionEvent) {
@@ -320,11 +330,11 @@ public class MainActivity extends AppCompatActivity {
                         break;
                     case MotionEvent.ACTION_DOWN:
                         A = true;
+                        mVib.vibrate(25);
                         break;
                     default:
                         return false;
                 }
-//                debug();
                 return true;
             }
         });
@@ -339,11 +349,11 @@ public class MainActivity extends AppCompatActivity {
                         break;
                     case MotionEvent.ACTION_DOWN:
                         X = true;
+                        mVib.vibrate(25);
                         break;
                     default:
                         return false;
                 }
-//                debug();
                 return true;
             }
         });
@@ -359,11 +369,11 @@ public class MainActivity extends AppCompatActivity {
                         break;
                     case MotionEvent.ACTION_DOWN:
                         Y = true;
+                        mVib.vibrate(25);
                         break;
                     default:
                         return false;
                 }
-//                debug();
                 return true;
             }
         });
@@ -378,11 +388,11 @@ public class MainActivity extends AppCompatActivity {
                         break;
                     case MotionEvent.ACTION_DOWN:
                         B = true;
+                        mVib.vibrate(25);
                         break;
                     default:
                         return false;
                 }
-//                debug();
                 return true;
             }
 
@@ -424,31 +434,83 @@ public class MainActivity extends AppCompatActivity {
 //
 //        });
 
-        btnBlue.setOnTouchListener(new View.OnTouchListener() {
+//        btnBlue.setOnTouchListener(new View.OnTouchListener() {
+//            @Override
+//            public boolean onTouch(View view, MotionEvent motionEvent) {
+//
+//                switch(motionEvent.getAction()){
+//                    case MotionEvent.ACTION_UP:
+//                        blue = false;
+//                        break;
+//                    case MotionEvent.ACTION_DOWN:
+//                        blue = true;
+//                        if(!mBluetooth.isEnabled()) {
+//                            mBluetooth.enable();
+//                            btnBlue.setText("Turn off");
+//                        } else {
+//                            mBluetooth.disable();
+//                            btnBlue.setText("Turn on");
+//                        }
+//                        break;
+//                    default:
+//                        return false;
+//                }
+////                debug();
+//                return true;
+//            }
+//
+//        });
+        btnStart.setOnTouchListener(new View.OnTouchListener() {
+
             @Override
             public boolean onTouch(View view, MotionEvent motionEvent) {
 
                 switch(motionEvent.getAction()){
                     case MotionEvent.ACTION_UP:
-                        blue = false;
+                        start = false;
                         break;
                     case MotionEvent.ACTION_DOWN:
-                        blue = true;
-                        if(!mBluetooth.isEnabled()) {
-                            mBluetooth.enable();
-                            btnBlue.setText("Turn off");
-                        } else {
-                            mBluetooth.disable();
-                            btnBlue.setText("Turn on");
-                        }
+                        start = true;
+                        mVib.vibrate(25);
                         break;
                     default:
                         return false;
                 }
-//                debug();
                 return true;
             }
+        });
 
+        btnSelect.setOnTouchListener(new View.OnTouchListener() {
+
+            @Override
+            public boolean onTouch(View view, MotionEvent motionEvent) {
+
+                switch(motionEvent.getAction()){
+                    case MotionEvent.ACTION_UP:
+                        select = false;
+                        break;
+                    case MotionEvent.ACTION_DOWN:
+                        select = true;
+                        mVib.vibrate(25);
+                        break;
+                    default:
+                        return false;
+                }
+                return true;
+            }
+        });
+
+        btnBlue.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if(!mBluetooth.isEnabled()) {
+                    mBluetooth.enable();
+                    btnBlue.setText("Turn off");
+                } else {
+                    mBluetooth.disable();
+                    btnBlue.setText("Turn on");
+                }
+            }
         });
 
         btnConnect.setOnClickListener(new View.OnClickListener() {
@@ -508,30 +570,30 @@ public class MainActivity extends AppCompatActivity {
     /**
      * packs the button and joysticks input into two byte long array
      */
-    private void inputs_to_array() {
-        input_array = 0;
-        input_array = (short) (input_array | ((right ? 1 : 0)   << RIGHT_BIT_POS));
-        input_array = (short) (input_array | ((left ? 1 : 0)    << LEFT_BIT_POS));
-        input_array = (short) (input_array | ((down ? 1 : 0)    << DOWN_BIT_POS));
-        input_array = (short) (input_array | ((up ? 1 : 0)      << UP_BIT_POS));
-        input_array = (short) (input_array | ((A ? 1 : 0)       << A_BIT_POS));
-        input_array = (short) (input_array | ((B ? 1 : 0)       << B_BIT_POS));
-        input_array = (short) (input_array | ((Y ? 1 : 0)       << Y_BIT_POS));
-        input_array = (short) (input_array | ((X ? 1 : 0)       << X_BIT_POS));
-        input_array = (short) (input_array | ((start ? 1 : 0)   << START_BIT_POS));
-        input_array = (short) (input_array | ((select ? 1 : 0)  << SELECT_BIT_POS));
+    private void encode_input() {
+        encoded_input = 0;
+        encoded_input = (short) (encoded_input | ((right ? 1 : 0)   << RIGHT_BIT_POS));
+        encoded_input = (short) (encoded_input | ((left ? 1 : 0)    << LEFT_BIT_POS));
+        encoded_input = (short) (encoded_input | ((down ? 1 : 0)    << DOWN_BIT_POS));
+        encoded_input = (short) (encoded_input | ((up ? 1 : 0)      << UP_BIT_POS));
+        encoded_input = (short) (encoded_input | ((A ? 1 : 0)       << A_BIT_POS));
+        encoded_input = (short) (encoded_input | ((B ? 1 : 0)       << B_BIT_POS));
+        encoded_input = (short) (encoded_input | ((Y ? 1 : 0)       << Y_BIT_POS));
+        encoded_input = (short) (encoded_input | ((X ? 1 : 0)       << X_BIT_POS));
+        encoded_input = (short) (encoded_input | ((start ? 1 : 0)   << START_BIT_POS));
+        encoded_input = (short) (encoded_input | ((select ? 1 : 0)  << SELECT_BIT_POS));
     }
 
     private void debug(){
 
-        inputs_to_array();
+        encode_input();
 
 //        Log.d(TAG,"X: "+pos_x+"  Y: "+pos_y);
         tvJoyStickDebug.setText("  X: "+(int)pos_x+
                                 "  Y: "+(int)pos_y+
                                 "\n  R: "+right+"  L: "+left+"  U: "+up+"  D: "+down+
                                 "\n  A: "+A+" B:"+B+" X:"+X+" Y:"+Y+
-                                "\n bluetooth:"+blue+ " arr: "+String.format("%016d", Integer.parseInt(Integer.toBinaryString(input_array))));
+                                "\n bt:"+blue+ " bin: "+String.format("%016d", Integer.parseInt(Integer.toBinaryString(encoded_input)))+" hex:"+Integer.toHexString(encoded_input));
 
     }
 
@@ -569,15 +631,17 @@ public class MainActivity extends AppCompatActivity {
 
         public void run(){
 
-            // Keep listening to the InputStream until an exception occurs
+            // write input_array every 50 ms to retropie
             while (!isCancelled) {
-                Log.d(TAG, "Send input thread");
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
                         debug();
                         if(isConnected){
-                            mBluetooth.write(String.format("%016d", Integer.parseInt(Integer.toBinaryString(input_array))));
+//                            mBluetooth.write(String.format("%016d", Integer.parseInt(Integer.toBinaryString(encoded_input))));
+                            // write as hex string to reduce size of message
+                            // add "_" to end of string to tell retropie that we are finished transmitting input
+                            mBluetooth.write(Integer.toHexString(encoded_input)+"_");
                         }
                     }
                 });
@@ -599,9 +663,14 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy(){
-        super.onDestroy();
 //        unregisterReceiver(mBroadcastReceiver);
+        if(mSendInputThread != null){
+            mSendInputThread.cancel();
+            mSendInputThread = null;
+        }
         mBluetooth.release();
+        super.onDestroy();
+
     }
 
 
