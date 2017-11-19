@@ -140,6 +140,8 @@ public class MyBluetoothService {
      * with a device. It runs straight through; the connection either
      * succeeds or fails.
      */
+
+
     private class ConnectThread extends Thread {
         private BluetoothSocket mmSocket;
 
