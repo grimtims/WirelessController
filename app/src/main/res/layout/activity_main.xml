@@ -85,6 +85,13 @@
                 android:orientation="vertical"
                 android:gravity="bottom">
 
+                <ToggleButton
+                    android:id="@+id/tbtn_gyro"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textOn="Gyro On"
+                    android:textOff="Gyro Off" />
+
                 <Button
                     android:id="@+id/btn_start"
                     android:text="Start"

@@ -109,6 +109,7 @@ public class Bluetooth implements bluetoothInterface {
     }
     public void disable(){
         if(mBluetoothAdapter.isEnabled()){
+            this.closeConnection();
             mBluetoothAdapter.disable();
             Toast.makeText(activity, "Bluetooth disabled.", Toast.LENGTH_LONG).show();
         }
