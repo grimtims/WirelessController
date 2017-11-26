@@ -1,0 +1,108 @@
+#!/usr/bin/python2.7
+
+import bluetooth
+from time import sleep
+import RPi.GPIO as GPIO
+
+
+GPIO.setmode(GPIO.BCM)
+
+
+SELECT_PIN 	= 25;
+START_PIN 	= 8;
+X_PIN		= 16;
+Y_PIN		= 20;
+B_PIN		= 12;
+A_PIN		= 1;
+UP_PIN		= 18;
+DOWN_PIN	= 23;
+LEFT_PIN 	= 14;
+RIGHT_PIN	= 15;
+
+PIN_LIST = [	SELECT_PIN,
+		START_PIN ,
+		X_PIN,
+		Y_PIN,
+		B_PIN,
+		A_PIN,
+		UP_PIN,
+		DOWN_PIN,
+		LEFT_PIN,
+		RIGHT_PIN]
+
+GPIO.setup(PIN_LIST, GPIO.OUT)
+
+
+
+
+SELECT_BIT 	= 9;
+START_BIT 	= 8;
+X_BIT		= 7;
+Y_BIT		= 6;
+B_BIT		= 5;
+A_BIT		= 4;
+UP_BIT		= 3;
+DOWN_BIT	= 2;
+LEFT_BIT 	= 1;
+RIGHT_BIT	= 0;
+
+BIT_PIN_LIST = [ 	(SELECT_BIT,SELECT_PIN), 
+			(START_BIT,START_PIN), 
+			(X_BIT,X_PIN),	
+			(Y_BIT,Y_PIN),	
+			(B_BIT,B_PIN),	
+			(A_BIT,A_PIN),	
+			(UP_BIT,UP_PIN),	
+			(DOWN_BIT,DOWN_PIN),
+			(LEFT_BIT,LEFT_PIN ),
+			(RIGHT_BIT,RIGHT_PIN) ]
+
+
+def get_bit(num, i):
+	return ((num&(1<<i))!=0);
+
+def input_handler(data):
+
+	for bit, pin in BIT_PIN_LIST:
+		if(get_bit(data,bit) == 1):
+			GPIO.output(pin, GPIO.LOW)
+		else:
+			GPIO.output(pin, GPIO.HIGH)	
+		
+
+# Bluetooth 
+
+server_socket=bluetooth.BluetoothSocket( bluetooth.RFCOMM )
+ 
+port = 1
+server_socket.bind(("",port))
+server_socket.listen(1)
+
+try:
+	while 1:
+	
+		client_socket,address = server_socket.accept()
+		print ("Accepted connection from ",address)
+		
+		while 1:
+		
+			data = client_socket.recv(1024)
+		
+			if (data == "q"):
+				print ("Disconnected, awaiting new connection...");
+				break
+		
+			# get everything before the termination character
+			trim_data = data.split("_")[0]
+		
+			input_handler(int(trim_data,16)); #hex str to hex number
+		
+			bin_data = "{0:016b}".format(int(trim_data,16))
+		
+			#print ("Received: %s\t bin: %s" %(trim_data, bin_data))
+except:
+	
+	GPIO.cleanup()
+
+	client_socket.close()
+	server_socket.close()
